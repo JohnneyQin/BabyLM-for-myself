@@ -6,46 +6,46 @@ from tokenizers.implementations import ByteLevelBPETokenizer
 from tokenizers.processors import BertProcessing
 from transformers import RobertaConfig, RobertaTokenizer, RobertaForMaskedLM, LineByLineTextDataset, \
     DataCollatorForLanguageModeling, TrainingArguments, Trainer, pipeline
-
+from transformers import BertTokenizer
 # cuda是否可用
 torch.cuda.is_available()
-# print(torch.cuda.is_available())
+# # print(torch.cuda.is_available())
 
-texts = [str(x) for x in Path(".").glob("babylm_10M/*.train")]
-# print(texts)
+# texts = [str(x) for x in Path(".").glob("babylm_10M/*.train")]
+# # print(texts)
 
-# 初始化tokenizer
-tokenizer = ByteLevelBPETokenizer()
-# print(tokenizer)
+# # 初始化tokenizer
+# tokenizer = ByteLevelBPETokenizer()
+# # print(tokenizer)
 
-# 自定义tokenizer训练
-tokenizer.train(files=texts,  # 训练语料
-                vocab_size=52000,  # 词汇量
-                min_frequency=2,  # 单词出现的最小次数
-                special_tokens=['<CLS>', '<SEP>', '<PAD>', '<UNK>', '<MASK>'])
-# '<CLS>'：开始， '<SEP>'：结束， '<PAD>'：填充标记， '<UNK>'：未知标记 ，'<MASK>'：遮掩标记
+# # 自定义tokenizer训练
+# tokenizer.train(files=texts,  # 训练语料
+#                 vocab_size=52000,  # 词汇量
+#                 min_frequency=2,  # 单词出现的最小次数
+#                 special_tokens=['<CLS>', '<SEP>', '<PAD>', '<UNK>', '<MASK>'])
+# # '<CLS>'：开始， '<SEP>'：结束， '<PAD>'：填充标记， '<UNK>'：未知标记 ，'<MASK>'：遮掩标记
 
-token_dir = './robertaModel'
-if not os.path.exists(token_dir):
-    os.makedirs(token_dir)
-# 保存tokenizer
-tokenizer.save_model("robertaModel")
+# token_dir = './robertaModel'
+# if not os.path.exists(token_dir):
+#     os.makedirs(token_dir)
+# # 保存tokenizer
+# tokenizer.save_model("robertaModel")
 
-# result = tokenizer.encode("the rabbit is jumping.")
-# print(result.ids)  # token的id
-# print(result.type_ids)  # 全0表示一句话
-# print(result.tokens)  # 每一个token
-# print(result.attention_mask)  # 全1表示没有mask操作
-# print(result.special_tokens_mask)  # 全0表示没有special tokens
+# # result = tokenizer.encode("the rabbit is jumping.")
+# # print(result.ids)  # token的id
+# # print(result.type_ids)  # 全0表示一句话
+# # print(result.tokens)  # 每一个token
+# # print(result.attention_mask)  # 全1表示没有mask操作
+# # print(result.special_tokens_mask)  # 全0表示没有special tokens
 
-# 定义后处理的方式，在每句话的前后加上<s>和</s>
-tokenizer.tokenizer.post_processor = BertProcessing(
-    ("<SEP>", 1),
-    ("<CLS>", 0)
-)
+# # 定义后处理的方式，在每句话的前后加上<s>和</s>
+# tokenizer.tokenizer.post_processor = BertProcessing(
+#     ("<SEP>", 1),
+#     ("<CLS>", 0)
+# )
 
-tokenizer.enable_truncation(max_length=512)  # 最长的语句不超过512个token
-tokenizer.save('robertaModel/tokenizer_config.json')
+# tokenizer.enable_truncation(max_length=512)  # 最长的语句不超过512个token
+# tokenizer.save('robertaModel/tokenizer_config.json')
 
 # 定义模型的超参数
 config = RobertaConfig(
@@ -55,7 +55,7 @@ config = RobertaConfig(
     num_hidden_layers=6,  # 6层
     type_vocab_size=1  # 指代token_type_ids的类别
 )
-
+tokenizer = BertTokenizer.from_pretrained('./bert-base-uncased')
 # 基于训练的tokenizer，创建一个roberta tokenizer
 roberta_tokenizer = RobertaTokenizer.from_pretrained('./robertaModel', max_legth=512)
 
@@ -66,7 +66,7 @@ roberta_model = RobertaForMaskedLM(config=config)
 dataset = LineByLineTextDataset(tokenizer=roberta_tokenizer,  # 分词器
                                 file_path='./babylm_10M/wikipedia.train',  # 文本数据
                                 block_size=128)  # 每批读取128行
-data_collector = DataCollatorForLanguageModeling(tokenizer=roberta_tokenizer,  # 分词器
+data_collator = DataCollatorForLanguageModeling(tokenizer=roberta_tokenizer,  # 分词器
                                                  mlm=True,  # 是mlm模型
                                                  mlm_probability=0.15)  # 15%的概率进行mask
 
@@ -83,7 +83,7 @@ trainArgs = TrainingArguments(
 trainer = Trainer(
     model=roberta_model,  # 模型对象
     args=trainArgs,  # 训练参数
-    data_collector=data_collector,  # collector
+    data_collator=data_collator,  # collector
     train_dataset=dataset  # 数据集
 )
 
